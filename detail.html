@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Product – Secret Shop</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body class="page-body">
+
+<nav class="navbar navbar-white">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="#1a1a2e"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm0 12H4V9h16v10zM12 3c-1.7 0-3 1.3-3 3h2c0-.6.4-1 1-1s1 .4 1 1h2c0-1.7-1.3-3-3-3z"/></svg>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Home</a>
+      <a href="catalog.html" class="nav-link active">Gadget Repository</a>
+    </div>
+    <a href="cart.html" class="nav-cart" style="color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM7.8 14h8.4l1.5-8H5.2L4.3 2H1v2h2l3.6 10z"/></svg>
+      <span class="cart-badge" id="cartCount">0</span>
+    </a>
+  </div>
+</nav>
+
+<div class="detail-page">
+  <a href="catalog.html" class="back-link">← Back to Gadget Repository</a>
+  <div id="detailContent"></div>
+</div>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-col"><h4>QUICK LINKS</h4><ul><li><a href="catalog.html">Gadget Repository</a></li></ul></div>
+    <div class="footer-col"><h4>TOOLS</h4><ul><li><a href="#">Information</a></li></ul></div>
+    <div class="footer-col"><h4>CONTACT</h4><ul><li><a href="#">✉ Email</a></li></ul></div>
+  </div>
+  <p class="footer-note">This site is for demonstration purposes only</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="api.js"></script>
+<script>
+  const cartBadge = document.getElementById('cartCount');
+  const params = new URLSearchParams(window.location.search);
+  const productId = params.get('id');
+
+  async function loadCartCount() {
+    try {
+      const c = await Api.cart.get();
+      cartBadge.textContent = (c.items||[]).reduce((s,i)=>s+(i.quantity||1),0);
+    } catch { cartBadge.textContent = '0'; }
+  }
+
+  async function loadProduct() {
+    const container = document.getElementById('detailContent');
+    if (!productId) { container.innerHTML = '<p style="color:var(--text-muted);padding:40px 0">No product ID specified.</p>'; return; }
+
+    container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+    try {
+      const p = await Api.catalog.getProduct(productId);
+      document.title = p.name + ' – Secret Shop';
+      const imgSrc = p.imageUrl || `/assets/img/products/${p.id}.jpg`;
+      const tags = p.tags ? p.tags.map(t => typeof t === 'string' ? t : t.name).join(', ') : '';
+
+      container.innerHTML = `
+        <div class="detail-layout">
+          <div class="detail-img-wrap">
+            <img src="${imgSrc}" alt="${escHtml(p.name)}" onerror="this.src='/assets/img/products/${p.id}.jpg'"/>
+          </div>
+          <div>
+            ${tags ? `<span class="detail-tag">${escHtml(tags)}</span>` : ''}
+            <h1 class="detail-title">${escHtml(p.name)}</h1>
+            <div class="stars" style="font-size:18px;letter-spacing:3px;margin-bottom:16px">☆☆☆☆☆</div>
+            <div class="detail-price">$${Number(p.price).toLocaleString()}</div>
+            <p class="detail-desc">${escHtml(p.description || '')}</p>
+            <button class="btn-add-large" id="addBtn">＋ Add to Loadout</button>
+          </div>
+        </div>`;
+
+      document.getElementById('addBtn').addEventListener('click', async function() {
+        this.disabled = true;
+        try {
+          await Api.cart.addItem(p.id, 1);
+          this.textContent = '✓ Added to Loadout!'; this.style.background = '#27ae60';
+          await loadCartCount();
+          setTimeout(() => { this.textContent = '＋ Add to Loadout'; this.style.background = ''; this.disabled = false; }, 1800);
+        } catch(e) {
+          showToast('Cart error: ' + e.message); this.disabled = false;
+        }
+      });
+    } catch(e) {
+      container.innerHTML = `<div class="svc-unavailable">
+        <svg class="svc-unavailable-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <h3>Product not found</h3>
+        <p>Could not load product details. Catalog service may be unavailable.</p>
+        <button class="btn-retry" onclick="loadProduct()">Retry</button>
+      </div>`;
+    }
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+  function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  loadCartCount(); loadProduct();
+</script>
+</body>
+</html>

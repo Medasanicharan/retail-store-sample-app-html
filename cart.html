@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Loadout – Secret Shop</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body class="page-body">
+
+<nav class="navbar navbar-white">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="#1a1a2e"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm0 12H4V9h16v10zM12 3c-1.7 0-3 1.3-3 3h2c0-.6.4-1 1-1s1 .4 1 1h2c0-1.7-1.3-3-3-3z"/></svg>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Home</a>
+      <a href="catalog.html" class="nav-link">Gadget Repository</a>
+    </div>
+    <a href="cart.html" class="nav-cart" style="color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM7.8 14h8.4l1.5-8H5.2L4.3 2H1v2h2l3.6 10z"/></svg>
+      <span class="cart-badge" id="cartCount">0</span>
+    </a>
+  </div>
+</nav>
+
+<div class="cart-page">
+  <h1>Loadout</h1>
+  <div id="cartContent"></div>
+</div>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-col"><h4>QUICK LINKS</h4><ul><li><a href="catalog.html">Gadget Repository</a></li></ul></div>
+    <div class="footer-col"><h4>TOOLS</h4><ul><li><a href="#">Information</a></li></ul></div>
+    <div class="footer-col"><h4>CONTACT</h4><ul><li><a href="#">✉ Email</a></li></ul></div>
+  </div>
+  <p class="footer-note">This site is for demonstration purposes only</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="api.js"></script>
+<script>
+  const cartBadge = document.getElementById('cartCount');
+
+  async function loadCart() {
+    const container = document.getElementById('cartContent');
+    container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+    try {
+      const cart = await Api.cart.get();
+      // cart.items: [{id, productId, name, price, quantity, imageUrl}, ...]
+      const items = cart.items || [];
+      const count = items.reduce((s,i) => s + (i.quantity||1), 0);
+      cartBadge.textContent = count;
+
+      if (items.length === 0) {
+        container.innerHTML = `<div class="cart-empty">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="#ccc"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM7.8 14h8.4l1.5-8H5.2L4.3 2H1v2h2l3.6 10z"/></svg>
+          <p>Your loadout is empty</p>
+          <a href="catalog.html" class="btn-continue-shop">Browse Gadget Repository</a>
+        </div>`;
+        return;
+      }
+
+      // Calculate totals
+      // The backend gives us price per item; subtotal = sum of price * quantity
+      let subtotal = 0;
+      items.forEach(item => {
+        subtotal += (item.price || item.unitPrice || 0) * (item.quantity || 1);
+      });
+
+      const html = document.createElement('div');
+
+      // Item rows
+      const listEl = document.createElement('div');
+      listEl.className = 'cart-items';
+      items.forEach(item => {
+        const imgSrc = item.imageUrl || `/assets/img/products/${item.productId || item.id}.jpg`;
+        const lineTotal = (item.price || item.unitPrice || 0) * (item.quantity || 1);
+        const row = document.createElement('div');
+        row.className = 'cart-item';
+        row.dataset.itemId = item.id;
+        row.innerHTML = `
+          <img class="cart-item-img" src="${imgSrc}" alt="${escHtml(item.name)}" onerror="this.src='/assets/img/products/${item.productId||item.id}.jpg'"/>
+          <div class="cart-item-info">
+            <div class="cart-item-name">${escHtml(item.name)}</div>
+            <div class="cart-item-qty">Quantity: ${item.quantity || 1}</div>
+          </div>
+          <div class="cart-item-price">
+            <div class="cart-item-total">$${lineTotal.toLocaleString()}</div>
+            <div class="cart-item-each">$${Number(item.price || item.unitPrice || 0).toLocaleString()} each</div>
+            <button class="btn-remove" data-item-id="${item.id}" title="Remove">🗑</button>
+          </div>`;
+        listEl.appendChild(row);
+      });
+
+      // Summary
+      const summaryEl = document.createElement('div');
+      summaryEl.className = 'cart-summary';
+      summaryEl.innerHTML = `
+        <div class="cart-summary-row">
+          <div>
+            <div class="cart-summary-label">Subtotal</div>
+            <div class="cart-summary-note">Shipping and taxes calculated at checkout</div>
+          </div>
+          <div class="cart-total-amount">$${subtotal.toLocaleString()}</div>
+        </div>
+        <button class="btn-checkout" id="checkoutBtn">⊟ Start Equipment Requisition</button>`;
+
+      html.appendChild(listEl);
+      html.appendChild(summaryEl);
+      container.innerHTML = '';
+      container.appendChild(html);
+
+      // Remove item
+      listEl.querySelectorAll('.btn-remove').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          btn.disabled = true;
+          try {
+            await Api.cart.removeItem(btn.dataset.itemId);
+            loadCart(); // reload
+          } catch(e) {
+            showToast('Could not remove item: ' + e.message); btn.disabled = false;
+          }
+        });
+      });
+
+      // Proceed to checkout
+      document.getElementById('checkoutBtn').addEventListener('click', () => {
+        window.location.href = 'checkout.html';
+      });
+
+    } catch(e) {
+      cartBadge.textContent = '0';
+      container.innerHTML = `<div class="svc-unavailable">
+        <svg class="svc-unavailable-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <h3>Cart service unavailable</h3>
+        <p>The cart backend is not reachable. Start the cart service to manage your loadout.</p>
+        <button class="btn-retry" onclick="loadCart()">Retry</button>
+      </div>`;
+    }
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+  function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  loadCart();
+</script>
+</body>
+</html>

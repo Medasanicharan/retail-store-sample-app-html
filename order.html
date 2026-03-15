@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mission Authorized – Secret Shop</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body class="page-body">
+
+<nav class="navbar navbar-white">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="#1a1a2e"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm0 12H4V9h16v10zM12 3c-1.7 0-3 1.3-3 3h2c0-.6.4-1 1-1s1 .4 1 1h2c0-1.7-1.3-3-3-3z"/></svg>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Home</a>
+      <a href="catalog.html" class="nav-link">Gadget Repository</a>
+    </div>
+    <a href="cart.html" class="nav-cart" style="color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM7.8 14h8.4l1.5-8H5.2L4.3 2H1v2h2l3.6 10z"/></svg>
+      <span class="cart-badge" id="cartCount">0</span>
+    </a>
+  </div>
+</nav>
+
+<div class="order-page">
+  <div class="warning-banner">
+    <svg width="18" height="18" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" fill="#c0a000"/></svg>
+    <span>Warning — This site is for demonstration/educational purposes only, this order is not genuine</span>
+  </div>
+  <div id="orderContent"></div>
+</div>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-col"><h4>QUICK LINKS</h4><ul><li><a href="catalog.html">Gadget Repository</a></li></ul></div>
+    <div class="footer-col"><h4>TOOLS</h4><ul><li><a href="#">Information</a></li></ul></div>
+    <div class="footer-col"><h4>CONTACT</h4><ul><li><a href="#">✉ Email</a></li></ul></div>
+  </div>
+  <p class="footer-note">This site is for demonstration purposes only</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="api.js"></script>
+<script>
+  const cartBadge = document.getElementById('cartCount');
+  cartBadge.textContent = '0';
+
+  async function init() {
+    const container = document.getElementById('orderContent');
+    container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+    // Get the order ID that was saved by checkout-payment.html
+    const lastOrderId = sessionStorage.getItem('sss_last_order_id');
+
+    try {
+      let order;
+      if (lastOrderId) {
+        order = await Api.orders.get(lastOrderId);
+      } else {
+        // Fall back to most recent order
+        const list = await Api.orders.list();
+        const orders = Array.isArray(list) ? list : (list.orders || list.content || []);
+        if (orders.length === 0) throw new Error('No orders found');
+        // Most recent first
+        order = orders[0];
+      }
+
+      const items = order.items || order.lineItems || [];
+
+      container.innerHTML = `
+        <div class="order-layout">
+          <div class="order-hero-img">
+            <img src="/assets/img/order.jpg" alt="Order processing"
+                 onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,#0d0d1a,#1a1a3e)'"/>
+          </div>
+          <div class="order-info">
+            <h1 class="order-confirmed-title">Mission Authorized!</h1>
+            <p class="order-id-label">Order ID</p>
+            <p class="order-id">${escHtml(String(order.id || order.orderId || ''))}</p>
+            <div class="order-progress">
+              <div class="progress-bar-wrap"><div class="progress-bar"></div></div>
+              <div class="progress-labels">
+                <span>Order placed</span><span>Processing</span><span>Shipped</span>
+              </div>
+            </div>
+            <div class="order-items" id="orderItems"></div>
+          </div>
+        </div>`;
+
+      const itemsEl = document.getElementById('orderItems');
+      items.forEach(item => {
+        const imgSrc = item.imageUrl || `/assets/img/products/${item.productId || item.id}.jpg`;
+        const qty    = item.quantity || 1;
+        const price  = item.price || item.unitPrice || 0;
+        const line   = price * qty;
+        const row    = document.createElement('div');
+        row.className = 'order-item';
+        row.innerHTML = `
+          <img class="order-item-img" src="${imgSrc}" alt="${escHtml(item.name||'')}"
+               onerror="this.src='/assets/img/products/${item.productId||item.id}.jpg'"/>
+          <div>
+            <div class="order-item-name">${escHtml(item.name||'')}</div>
+            <div class="order-item-qty">Quantity: ${qty}</div>
+          </div>
+          <div class="order-item-price">
+            <div class="order-item-total">$${line.toLocaleString()}</div>
+            <div class="order-item-each">$${Number(price).toLocaleString()} each</div>
+          </div>`;
+        itemsEl.appendChild(row);
+      });
+
+    } catch(e) {
+      container.innerHTML = `<div class="svc-unavailable">
+        <svg class="svc-unavailable-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <h3>Orders service unavailable</h3>
+        <p>Could not load order details. The orders backend may not be reachable yet.</p>
+        <button class="btn-retry" onclick="init()">Retry</button>
+        <a href="index.html" style="margin-top:12px;display:inline-block;color:var(--primary);font-size:14px">Back to Home</a>
+      </div>`;
+    }
+  }
+
+  function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  init();
+</script>
+</body>
+</html>gh

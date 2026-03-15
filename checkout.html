@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Checkout – Secret Shop</title>
+  <link rel="stylesheet" href="styles.css"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body class="page-body">
+
+<nav class="navbar navbar-white">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="#1a1a2e"><path d="M20 7H4c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V9c0-1.1-.9-2-2-2zm0 12H4V9h16v10zM12 3c-1.7 0-3 1.3-3 3h2c0-.6.4-1 1-1s1 .4 1 1h2c0-1.7-1.3-3-3-3z"/></svg>
+    </a>
+    <div class="nav-links">
+      <a href="index.html" class="nav-link">Home</a>
+      <a href="catalog.html" class="nav-link">Gadget Repository</a>
+    </div>
+    <a href="cart.html" class="nav-cart" style="color:var(--text)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 18c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm10 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zM7.8 14h8.4l1.5-8H5.2L4.3 2H1v2h2l3.6 10z"/></svg>
+      <span class="cart-badge" id="cartCount">0</span>
+    </a>
+  </div>
+</nav>
+
+<div class="checkout-page">
+
+  <!-- Step indicator -->
+  <div class="checkout-steps">
+    <div class="checkout-step active">
+      <div class="step-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z" fill="white"/></svg>
+      </div>
+      <span class="step-label">Rendezvous Location</span>
+    </div>
+    <div class="checkout-step">
+      <div class="step-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4z" fill="#aaa"/></svg>
+      </div>
+      <span class="step-label">Covert Delivery</span>
+    </div>
+    <div class="checkout-step">
+      <div class="step-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z" fill="#aaa"/></svg>
+      </div>
+      <span class="step-label">Mission Funding</span>
+    </div>
+  </div>
+
+  <div id="checkoutContent"></div>
+</div>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-col"><h4>QUICK LINKS</h4><ul><li><a href="catalog.html">Gadget Repository</a></li></ul></div>
+    <div class="footer-col"><h4>TOOLS</h4><ul><li><a href="#">Information</a></li></ul></div>
+    <div class="footer-col"><h4>CONTACT</h4><ul><li><a href="#">✉ Email</a></li></ul></div>
+  </div>
+  <p class="footer-note">This site is for demonstration purposes only</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script src="api.js"></script>
+<script>
+  const cartBadge = document.getElementById('cartCount');
+
+  async function loadCartCount() {
+    try {
+      const c = await Api.cart.get();
+      cartBadge.textContent = (c.items||[]).reduce((s,i)=>s+(i.quantity||1),0);
+    } catch { cartBadge.textContent = '0'; }
+  }
+
+  async function init() {
+    const container = document.getElementById('checkoutContent');
+    container.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+    // Load cart to get subtotal
+    let cart, subtotal = 0;
+    try {
+      cart = await Api.cart.get();
+      subtotal = (cart.items||[]).reduce((s,i) => s + ((i.price||i.unitPrice||0)*(i.quantity||1)), 0);
+      cartBadge.textContent = (cart.items||[]).reduce((s,i)=>s+(i.quantity||1),0);
+    } catch(e) {
+      container.innerHTML = `<div class="svc-unavailable">
+        <svg class="svc-unavailable-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+        <h3>Cart service unavailable</h3>
+        <p>Cannot proceed to checkout — the cart service is not reachable.</p>
+        <button class="btn-retry" onclick="init()">Retry</button>
+      </div>`;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="warning-banner">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" fill="#c0a000"/></svg>
+        <span>Warning — This site is for demonstration/educational purposes only, do not enter personal details</span>
+      </div>
+      <div class="checkout-body">
+        <div class="checkout-form">
+          <h2>Rendezvous Location</h2>
+          <div class="form-row">
+            <div class="form-group"><label>First Name</label><input id="firstName" type="text" autocomplete="given-name"/></div>
+            <div class="form-group"><label>Last Name</label><input id="lastName" type="text" autocomplete="family-name"/></div>
+          </div>
+          <div class="form-group"><label>Street Address</label><input id="street" type="text" autocomplete="street-address"/></div>
+          <div class="form-row">
+            <div class="form-group"><label>City</label><input id="city" type="text" autocomplete="address-level2"/></div>
+            <div class="form-group"><label>State/Province</label><input id="state" type="text" autocomplete="address-level1"/></div>
+          </div>
+          <div class="form-group" style="max-width:200px"><label>ZIP</label><input id="zip" type="text" autocomplete="postal-code"/></div>
+          <div class="form-group"><label>E-mail</label><input id="email" type="email" autocomplete="email"/></div>
+          <div class="form-actions">
+            <a href="cart.html" class="btn-back">Back to Cart</a>
+            <button class="btn-next" id="continueBtn">Continue →</button>
+          </div>
+        </div>
+        <div class="order-summary">
+          <div class="order-summary-title">Amount due</div>
+          <div class="order-summary-amount">$${subtotal.toLocaleString()}</div>
+          <div class="summary-row"><span>Subtotal</span><span>$${subtotal.toLocaleString()}</span></div>
+          <div class="summary-total"><span>Total</span><span>$${subtotal.toLocaleString()}</span></div>
+        </div>
+      </div>`;
+
+    document.getElementById('continueBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('continueBtn');
+      const address = {
+        firstName:   document.getElementById('firstName').value.trim(),
+        lastName:    document.getElementById('lastName').value.trim(),
+        address1:    document.getElementById('street').value.trim(),
+        city:        document.getElementById('city').value.trim(),
+        state:       document.getElementById('state').value.trim(),
+        zip:         document.getElementById('zip').value.trim(),
+        email:       document.getElementById('email').value.trim(),
+      };
+      if (!address.firstName || !address.lastName || !address.address1 || !address.city) {
+        showToast('Please fill in all required fields.'); return;
+      }
+      btn.disabled = true; btn.textContent = 'Saving…';
+      try {
+        await Api.checkout.create(address);
+        window.location.href = 'checkout-delivery.html';
+      } catch(e) {
+        showToast('Checkout error: ' + e.message); btn.disabled = false; btn.textContent = 'Continue →';
+      }
+    });
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  loadCartCount(); init();
+</script>
+</body>
+</html>
